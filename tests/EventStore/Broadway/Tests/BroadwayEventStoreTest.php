@@ -5,19 +5,26 @@ use Broadway\Domain\DateTime;
 use Broadway\Domain\DomainEventStream;
 use Broadway\Domain\DomainMessage;
 use Broadway\Domain\Metadata;
-use Broadway\Serializer\SerializableInterface;
+use Broadway\Serializer\Serializable;
+use Broadway\Serializer\SimpleInterfaceSerializer;
 use EventStore\Broadway\BroadwayEventStore;
 use EventStore\EventStore;
+use EventStore\Http\GuzzleHttpClient;
 use EventStore\ValueObjects\Identity\UUID;
+use PHPUnit\Framework\TestCase;
 
-class BroadwayEventStoreTest extends \PHPUnit_Framework_TestCase
+class BroadwayEventStoreTest extends TestCase
 {
+    /** @var BroadwayEventStore */
     private $eventStore;
 
     protected function setUp()
     {
+        $httpClient = new GuzzleHttpClient();
         $this->eventStore = new BroadwayEventStore(
-            new EventStore('http://127.0.0.1:2113')
+            new EventStore('http://127.0.0.1:2113', $httpClient),
+            new SimpleInterfaceSerializer(),
+            new SimpleInterfaceSerializer()
         );
     }
 
@@ -46,7 +53,7 @@ class BroadwayEventStoreTest extends \PHPUnit_Framework_TestCase
      * This not makes much sense but it's the way DBALEventStore behave
      *
      * @test
-     * @expectedException Broadway\EventStore\EventStreamNotFoundException
+     * @expectedException \Broadway\EventStore\EventStreamNotFoundException
      */
     public function it_should_do_handle_empty_stream()
     {
@@ -144,7 +151,7 @@ class BroadwayEventStoreTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @test
-     * @expectedException Broadway\EventStore\EventStreamNotFoundException
+     * @expectedException \Broadway\EventStore\EventStreamNotFoundException
      */
     public function it_should_throw_an_exception_when_requesting_the_stream_of_a_non_existing_aggregate()
     {
@@ -154,7 +161,7 @@ class BroadwayEventStoreTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @test
-     * @expectedException Broadway\EventStore\EventStoreException
+     * @expectedException \Broadway\EventStore\Exception\DuplicatePlayheadException
      */
     public function it_should_throw_an_exception_when_appending_a_duplicate_playhead()
     {
@@ -178,7 +185,7 @@ class BroadwayEventStoreTest extends \PHPUnit_Framework_TestCase
     }
 }
 
-class Event implements SerializableInterface
+class Event implements Serializable
 {
 
     /**
@@ -199,7 +206,7 @@ class Event implements SerializableInterface
         return new Event($data['title']);
     }
 
-    public function serialize()
+    public function serialize(): array
     {
         return [
             'title' => $this->title
