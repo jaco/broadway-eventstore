@@ -77,18 +77,11 @@ class BroadwayEventStore implements EventStore
                 $playhead = $message->getPlayhead();
             }
 
-            $events[] = WritableEvent::newInstance(
-                $payload['class'],
-                array_merge(
-                    $payload['payload'],
-                    [
-                        'broadway_recorded_on' => $message
-                            ->getRecordedOn()
-                            ->toString()
-                    ]
-                ),
-                $this->metadataSerializer->serialize($message->getMetadata())
-            );
+            $type = $payload['class'];
+            $data = $payload['payload'];
+            $data['broadway_recorded_on'] = $message->getRecordedOn()->toString();
+            $metadata = $this->metadataSerializer->serialize($message->getMetadata());
+            $events[] = WritableEvent::newInstance($type, $data, $metadata);
         }
 
         if (empty($events)) {
