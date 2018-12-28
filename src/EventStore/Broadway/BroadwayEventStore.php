@@ -10,7 +10,9 @@ use Broadway\Domain\DomainMessage;
 use Broadway\EventStore\EventStore;
 use Broadway\EventStore\EventStreamNotFoundException;
 use Broadway\EventStore\Exception\DuplicatePlayheadException;
+use Broadway\EventStore\Management\EventStoreManagement;
 use EventStore\EventStoreInterface;
+use Broadway\EventStore\Management\Criteria;
 use EventStore\Exception\StreamNotFoundException;
 use EventStore\Exception\WrongExpectedVersionException;
 use EventStore\StreamFeed\EntryWithEvent;
@@ -18,9 +20,10 @@ use EventStore\StreamFeed\Event;
 use EventStore\WritableEvent;
 use EventStore\WritableEventCollection;
 use Broadway\Serializer\Serializer;
+use Broadway\EventStore\EventVisitor;
 
 
-class BroadwayEventStore implements EventStore
+class BroadwayEventStore implements EventStore, EventStoreManagement
 {
     private $eventStore;
     private $payloadSerializer;
@@ -55,6 +58,21 @@ class BroadwayEventStore implements EventStore
         }
 
         return new DomainEventStream($events);
+    }
+
+
+    public function visitEvents(Criteria $criteria, EventVisitor $eventVisitor)
+    {
+        $streamNames = $criteria->getAggregateRootIds();
+        if(count($streamNames)===0)
+        {
+            $streamNames = ['$all'];
+        }
+
+        foreach ($streamNames as $streamName)
+        {
+            $this->visitEventsFromStream($eventVisitor, $streamName);
+        }
     }
 
 
@@ -122,5 +140,28 @@ class BroadwayEventStore implements EventStore
             $object,
             $recordedOn
         );
+    }
+
+    /**
+     * @param EventVisitor $eventVisitor
+     * @param $id
+     */
+    private function visitEventsFromStream(EventVisitor $eventVisitor, $id): void
+    {
+        $iterator = $this
+            ->eventStore
+            ->forwardStreamFeedIterator($id);
+
+        try {
+            $iterator->rewind();
+        } catch (StreamNotFoundException $e) {
+            throw new EventStreamNotFoundException($e->getMessage());
+        }
+
+        /** @var EntryWithEvent $entry */
+        foreach ($iterator as $entry) {
+            $domainMessage = $this->buildDomainMessage($id, $entry->getEvent());
+            $eventVisitor->doWithEvent($domainMessage);
+        }
     }
 }

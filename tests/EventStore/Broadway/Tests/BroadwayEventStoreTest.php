@@ -5,6 +5,8 @@ use Broadway\Domain\DateTime;
 use Broadway\Domain\DomainEventStream;
 use Broadway\Domain\DomainMessage;
 use Broadway\Domain\Metadata;
+use Broadway\EventStore\CallableEventVisitor;
+use Broadway\EventStore\Management\Criteria;
 use Broadway\Serializer\Serializable;
 use Broadway\Serializer\SimpleInterfaceSerializer;
 use EventStore\Broadway\BroadwayEventStore;
@@ -172,6 +174,32 @@ class BroadwayEventStoreTest extends TestCase
         $appendedEventStream = new DomainEventStream(array($domainMessage));
 
         $this->eventStore->append($id, $appendedEventStream);
+    }
+
+
+    /**
+     * @test
+     */
+    public function it_can_visit_events_form_stream()
+    {
+        $id = (string) new UUID;
+        $dateTime = DateTime::fromString('2014-03-12T14:17:19.176169+00:00');
+        $domainEventStream = new DomainEventStream(array(
+            $expectedDomainMessage = $this->createDomainMessage($id, 0, $dateTime),
+        ));
+        $this->eventStore->append($id, $domainEventStream);
+
+        $visitedDomainMessage = null;
+
+        $criteria = new Criteria();
+        $criteria = $criteria->withAggregateRootIds([$id]);
+        $this->eventStore->visitEvents($criteria, new CallableEventVisitor(function (DomainMessage $domainMessage) use (&$visitedDomainMessage)
+        {
+            $visitedDomainMessage = $domainMessage;
+        }));
+
+        $this->assertEquals($expectedDomainMessage, $visitedDomainMessage);
+
     }
 
     private function createDomainMessage($id, $playhead, $recordedOn = null, $title = '')

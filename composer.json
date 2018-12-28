@@ -27,7 +27,7 @@
     ],
     "require": {
         "php": ">7.1.0",
-        "broadway/broadway": "~2.0",
+        "broadway/broadway": "~2.0.1",
         "friendsofouro/geteventstore-core": "~0.9"
     },
     "require-dev": {
