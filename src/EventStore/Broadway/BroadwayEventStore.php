@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace EventStore\Broadway;
 
 use function array_merge;
+use function array_push;
+use function array_reverse;
 use Broadway\Domain\DateTime;
 use Broadway\Domain\DomainEventStream;
 use Broadway\Domain\DomainMessage;
@@ -78,7 +80,30 @@ class BroadwayEventStore implements EventStore, EventStoreManagement
 
     public function loadFromPlayhead($id, int $playhead): DomainEventStream
     {
-        throw new \Exception('Not implemented yet');
+        $iterator = $this
+            ->eventStore
+            ->backwardStreamFeedIterator($id);
+
+        try {
+            $iterator->rewind();
+        } catch (StreamNotFoundException $e) {
+            throw new EventStreamNotFoundException($e->getMessage());
+        }
+
+        $events = [];
+        /** @var EntryWithEvent $entry */
+        $i = 0;
+        foreach($iterator as $entry)
+        {
+            if($entry->getEvent()->getVersion()<=$playhead)
+            {
+                break;
+            }
+
+            array_unshift($events, $this->buildDomainMessage($id, $entry->getEvent()));
+        }
+
+        return new DomainEventStream($events);
     }
     /**
      * @inheritDoc
